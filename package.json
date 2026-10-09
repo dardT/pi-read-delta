@@ -1,0 +1,31 @@
+{
+  "name": "pi-read-delta",
+  "version": "0.1.0",
+  "description": "A Pi extension that returns file changes since the latest comparable read.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "extension",
+    "diff",
+    "files"
+  ],
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "scripts": {
+    "package": "npm pack --dry-run"
+  }
+}
