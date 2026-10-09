@@ -87,6 +87,17 @@ function findLatestBaseline(path: string, ctx: ExtensionToolContext): Baseline |
 	return undefined;
 }
 
+function offsetPatchHunks(diff: string, offset?: number): string {
+	const lineOffset = offset ? Math.max(0, offset - 1) : 0;
+	if (lineOffset === 0) return diff;
+
+	return diff.replace(
+		/^@@ -(\d+)(,\d+)? \+(\d+)(,\d+)? @@/gm,
+		(_match, oldStart, oldLength = "", newStart, newLength = "") =>
+			`@@ -${Number(oldStart) + lineOffset}${oldLength} +${Number(newStart) + lineOffset}${newLength} @@`,
+	);
+}
+
 function exceedsOutputLimit(content: string): boolean {
 	return Buffer.byteLength(content, "utf-8") > MAX_OUTPUT_BYTES || content.split("\n").length > MAX_OUTPUT_LINES;
 }
@@ -129,7 +140,7 @@ export default function readDeltaExtension(pi: ExtensionAPI) {
 		name: "read_delta",
 		label: "read delta",
 		description:
-			"Compare a text file with the latest complete, successful read of the same path on the active conversation branch. Call read first. This tool accepts only path and automatically reuses that read's offset and limit, so the diff always covers the same range. It cannot compare truncated reads or images.",
+			"Compare a text file with the latest successful read of the same path on the active conversation branch. Call read first. This tool accepts only path and automatically reuses that read's offset and limit, so the diff always covers the same range and uses original-file line numbers. Offset- or limit-based reads are supported; reads cut by Pi's output cap and images are not.",
 		parameters: Type.Object({
 			path: Type.String({ description: "Path to the file to compare, relative or absolute" }),
 		}),
@@ -183,7 +194,7 @@ export default function readDeltaExtension(pi: ExtensionAPI) {
 				};
 			}
 
-			const diff = generateUnifiedPatch(path, baseline.content, current);
+			const diff = offsetPatchHunks(generateUnifiedPatch(path, baseline.content, current), baseline.offset);
 			if (exceedsOutputLimit(diff)) {
 				return {
 					content: [

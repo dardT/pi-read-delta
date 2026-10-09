@@ -22,9 +22,9 @@ pi --extension /Users/Shared/devtools-config/pi/agent/extensions/pi-read-delta
 read_delta({ path })
 ```
 
-The tool deliberately accepts only `path`. It finds the newest successful, untruncated `read` of the same resolved file on the active session branch and automatically reuses that call's `offset` and `limit` values. It then returns a unified diff between that previously read range and the current range at the same location.
+The tool deliberately accepts only `path`. It finds the newest successful `read` of the same resolved file on the active session branch and automatically reuses that call's `offset` and `limit` values. It then returns a unified diff between that previously read range and the current range at the same location; hunk locations use the original file's line numbers.
 
-Call `read` first. If the prior read was truncated, read an image, or was made before this extension was loaded, `read_delta` returns an explanation instead of an unreliable diff.
+Call `read` first. An offset- or limit-based read is a valid baseline. If the prior read was cut by Pi's 2,000-line/50 KiB output cap, read an image, or was made before this extension was loaded, `read_delta` returns an explanation instead of an unreliable diff.
 
 The extension stores baseline text in the prior `read` result's `details`. It is not sent to the model as an additional message, and follows Pi session branches and resumes.
 
