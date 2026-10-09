@@ -10,12 +10,6 @@ After publishing to npm:
 pi install npm:pi-read-delta
 ```
 
-For local development:
-
-```bash
-pi --extension /Users/Shared/devtools-config/pi/agent/extensions/pi-read-delta
-```
-
 ## `read_delta`
 
 ```text
