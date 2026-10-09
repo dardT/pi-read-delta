@@ -19,8 +19,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function getNumber(value: unknown): number | undefined {
-	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+function getPositiveInteger(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
 function expandHome(path: string): string {
@@ -47,12 +47,20 @@ async function readRange(path: string, offset?: number, limit?: number): Promise
 	return selectRange((await readFile(path)).toString("utf-8"), offset, limit);
 }
 
-function textFromReadResult(content: Array<{ type: string; text?: string }>, limit?: number): string | undefined {
+function textFromReadResult(
+	content: Array<{ type: string; text?: string }>,
+	selectedContent: string,
+	limit?: number,
+): string | undefined {
 	const text = content.find((block) => block.type === "text")?.text;
 	if (text === undefined) return undefined;
-	if (limit === undefined) return text;
+	if (text === selectedContent) return text;
+	if (limit === undefined || !text.startsWith(selectedContent)) return undefined;
 
-	return text.replace(/\n\n\[\d+ more lines in file\. Use offset=\d+ to continue\.\]$/, "");
+	const suffix = text.slice(selectedContent.length);
+	return /^\n\n\[\d+ more lines in file\. Use offset=\d+ to continue\.\]$/.test(suffix)
+		? selectedContent
+		: undefined;
 }
 
 function rangeDescription(offset?: number, limit?: number): string {
@@ -67,8 +75,12 @@ function getBaseline(details: unknown): Baseline | undefined {
 	const baseline = details[BASELINE_KEY];
 	if (typeof baseline.path !== "string" || typeof baseline.content !== "string") return undefined;
 
-	const offset = getNumber(baseline.offset);
-	const limit = getNumber(baseline.limit);
+	const offset = getPositiveInteger(baseline.offset);
+	const limit = getPositiveInteger(baseline.limit);
+	if ((baseline.offset !== undefined && offset === undefined) || (baseline.limit !== undefined && limit === undefined)) {
+		return undefined;
+	}
+
 	return { path: baseline.path, content: baseline.content, offset, limit };
 }
 
@@ -119,9 +131,14 @@ export default function readDeltaExtension(pi: ExtensionAPI) {
 
 		try {
 			const resolvedPath = await resolvePath(path, ctx.cwd);
-			const offset = getNumber(event.input.offset);
-			const limit = getNumber(event.input.limit);
-			const content = textFromReadResult(event.content, limit);
+			const offset = getPositiveInteger(event.input.offset);
+			const limit = getPositiveInteger(event.input.limit);
+			if ((event.input.offset !== undefined && offset === undefined) || (event.input.limit !== undefined && limit === undefined)) {
+				return;
+			}
+
+			const selectedContent = await readRange(resolvedPath, offset, limit);
+			const content = textFromReadResult(event.content, selectedContent, limit);
 			if (content === undefined) return;
 
 			return {
